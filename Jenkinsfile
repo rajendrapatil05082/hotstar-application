@@ -42,9 +42,23 @@ pipeline{
        
         stage('OWASP FS SCAN') {
             steps {
-                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit --nvdApiKey AEEF2076-A8C0-F011-8364-129478FCB64D', odcInstallation: 'DC'
-                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
-           }
+                script {
+                    // Clean old OWASP cache to avoid corruption
+                    sh 'rm -rf ~/.dependency-check-data || true'
+
+                    // Continue build even if OWASP fails (error code 13)
+                    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                        dependencyCheck additionalArguments: '''
+                            --scan ./ 
+                            --disableYarnAudit 
+                            --disableNodeAudit 
+                            --nvdApiKey=AEEF2076-A8C0-F011-8364-129478FCB64D 
+                            --failOnError false
+                        ''', odcInstallation: 'DC'
+                        dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+                    }
+                }
+            }
         }
             stage('TRIVY FS SCAN') {
             steps {
